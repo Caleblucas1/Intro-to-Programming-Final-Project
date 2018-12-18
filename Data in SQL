@@ -1,3 +1,8 @@
+We were not able to load our SQL Table into R, receiving blank boxes and and our columns names. 
+#We planned on using the the cursor.execute operation and were unable to do. 
+#We also tried using SQLalchemy but were unable to fill the table with our cleaned data even though we were able to do so with the raw data extracted from wikipedia.
+
+
 # All imports
 import sqlite3
 
