@@ -1,0 +1,124 @@
+#We were not able to load our SQL Table into R, receiving blank boxes and and our columns names. 
+#We planned on using the the cursor.execute operation and were unable to do. 
+#We also tried using SQLalchemy but were unable to fill the table with our cleaned data even though we were able to do so with the raw data extracted from wikipedia.
+#All imports
+import sqlite3
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from pandas import DataFrame
+from numpy import genfromtxt
+import re
+from sqlalchemy import create_engine
+
+#read entire table from wikipedia into an object
+tables = pd.read_html("https://en.wikipedia.org/wiki/Farebox_recovery_ratio", skiprows=1)[0]
+
+#create separate objects for each column in the table
+continent = tables[0]
+Country = tables[1]
+System = tables[2]
+Ratios = tables[3]
+Fare_system = tables[4]
+Fare_rate = tables[5]
+Year = tables[6]
+#print(Ratios)
+
+#Cleaning up the Year column, taking out all footnotes and using the first year when it is between the two years
+year_lst = list(Year)
+def CleanYear(raw_year):
+    numb = re.findall(r"[-+]?\d*\.\d+|\d+", str(raw_year))
+    return numb[0]
+
+clean_years = []
+for cells in year_lst:
+    clean_years.append(CleanYear(cells))
+#print(clean_years)
+
+#cleaning up the ratio from percentage to decimal float
+def CleanRatio(raw_ratio):
+    s = raw_ratio.split("%")
+    return float(s[0])/100.00
+
+clean_ratios = []
+for cells in Ratios:
+    clean_ratios.append(CleanRatio(cells))
+#print(clean_ratios)
+
+#Cleaning up the fare system column, taking only the first two words in each column, ignoring hybrid systems
+def SimpleFareSystem(raw_fare_system):
+    n = str(raw_fare_system).split()[:1]
+    return n
+
+clean_fare_system = []
+for cells in Fare_system:
+    clean_fare_system.append(SimpleFareSystem(cells))
+#print(clean_fare_system)
+
+#Cleaning up the fare rate column, keeping only the float number
+def SimpleFareRate(raw_fare_rate):
+    num = re.findall(r"[-+]?\d*\.\d+|\d+", str(raw_fare_rate))
+    if len(num) >= 1:
+        return float(num[0])
+    else:
+        return None
+
+Clean_Fare_rate = []
+for cells in Fare_rate:
+    Clean_Fare_rate.append(SimpleFareRate(cells))
+#print(Clean_Fare_rate)
+
+#Changing all fare rates to USD
+country_lst = list(Country)
+Currency_conversion = {
+                        "China": 0.14,
+                        "New Zealand": 0.69,
+                        "Belgium": 1.13,
+                        "US": 1,
+                        "Hong Kong": 0.13,
+                        "Japan": 0.0088,
+                        "Canada": 0.75,
+                        "Australia": 0.72,
+                        "Taiwan": 0.032,
+                        "Singapore": 0.73,
+                        "Netherlands": 0.56,
+                        "Germany": 1.13,
+                        "Pakistan": 0.0072,
+                        "Denmark": 0.15,
+                        "UK": 1.26,
+                        "Spain": 1.13,
+                        "Italy": 1.13,
+                        "Czech Republic": 0.044,
+                        "France": 1.13,
+                        "Sweden": 0.11,
+                        "Austria": 1.13,
+                        "Finland": 1.13,
+                        "Switzerland": 1.01
+                        }
+
+fare_in_usd = []
+for country, fare in zip(country_lst, Clean_Fare_rate):
+    if country in Currency_conversion.keys() and fare is not None:
+        fare_in_usd.append(Currency_conversion[country] * fare)
+    else:
+        fare_in_usd.append(None)
+#print(fare_in_usd)
+
+#Turning the rest of the column objects grabbed from wikipedia into lists for consistency
+system_lst = list(System)
+#print(system_lst)
+continent_lst = list(continent)
+#print(continent_lst)
+data = list(range(1,87))
+complete_table = {'Continent': continent, 'Country': Country,
+'System': System, 'Ratio': clean_ratios, 'Fare_system': clean_fare_system,
+'Fare_rate': Clean_Fare_rate, 'Year': year_lst}
+
+df = pd.DataFrame(complete_table, columns = ['Continent','Country','System','Ratio','FareSystem','FareRate','Year'])
+
+
+conn = sqlite3.connect("FareBoxTable12.sqlite")
+c = conn.cursor()
+df.to_sql('FareBoxRatioTable5',con=conn)
+st = “Select * from complete_table"
+cursor.execute(st, df)
